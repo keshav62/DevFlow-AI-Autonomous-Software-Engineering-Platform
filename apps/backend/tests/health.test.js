@@ -14,18 +14,16 @@ vi.mock('../src/config/env.js', () => ({
   },
 }));
 
+vi.mock('pino-http', () => ({
+  default: () => (req, res, next) => next(),
+}));
+
 vi.mock('../src/config/logger.js', () => ({
   logger: {
     info: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
     debug: vi.fn(),
-    child: vi.fn(() => ({
-      info: vi.fn(),
-      error: vi.fn(),
-      warn: vi.fn(),
-      debug: vi.fn(),
-    })),
   },
 }));
 
