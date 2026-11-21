@@ -1,0 +1,118 @@
+// DevFlow AI - Prisma Schema (Phase 1 Foundation)
+// Single migration owner for PostgreSQL 16 with pgvector
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizations  OrganizationMember[]
+  createdOrgs    Organization[]       @relation("OrgCreatedBy")
+  workflows      AgentWorkflow[]      @relation("WorkflowCreatedBy")
+
+  @@index([email])
+  @@index([clerkId])
+  @@map("users")
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdBy String
+  createdAt DateTime @default(now())
+
+  creator      User                 @relation("OrgCreatedBy", fields: [createdBy], references: [id])
+  members      OrganizationMember[]
+  repositories Repository[]
+  workflows    AgentWorkflow[]
+
+  @@index([slug])
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String     @id @default(uuid())
+  organizationId String
+  userId         String
+  role           MemberRole @default(MEMBER)
+  joinedAt       DateTime   @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+model Repository {
+  id             String   @id @default(uuid())
+  organizationId String
+  githubRepoId   String
+  owner          String
+  name           String
+  fullName       String
+  defaultBranch  String   @default("main")
+  installationId String?
+  isPrivate      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workflows    AgentWorkflow[]
+
+  @@unique([organizationId, fullName])
+  @@index([organizationId])
+  @@index([fullName])
+  @@map("repositories")
+}
+
+model AgentWorkflow {
+  id             String         @id @default(uuid())
+  organizationId String
+  repositoryId   String?
+  createdBy      String
+  status         WorkflowStatus @default(PENDING)
+  currentNode    String?
+  retryCount     Int            @default(0)
+  createdAt      DateTime       @default(now())
+  completedAt    DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repository   Repository?  @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+  creator      User         @relation("WorkflowCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([repositoryId])
+  @@map("agent_workflows")
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum WorkflowStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
